@@ -3,224 +3,280 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Universal Lyrics Live</title>
+    <title>Spotify Live Lyrics</title>
     <style>
-        /* 基礎全裝置重置 */
-        * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-            margin: 0;
-            padding: 0;
-        }
-
         :root {
             --bg: #000000;
             --accent: #1DB954;
             --text-active: #ffffff;
-            --text-dim: rgba(255, 255, 255, 0.25);
-            --header-bg: rgba(10, 10, 10, 0.85);
-            --safe-area-inset-top: env(safe-area-inset-top);
+            --text-dim: rgba(255, 255, 255, 0.3);
+            --glass: rgba(15, 15, 15, 0.85);
         }
 
-        body {
+        /* 基礎重置與過度捲動處理 */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+        
+        html, body {
+            height: 100%;
             background-color: var(--bg);
             color: var(--text-active);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden; /* 禁止 Body 捲動，由容器處理 */
-            overscroll-behavior: none; /* 全裝置禁止橡皮筋回彈 */
+            overflow: hidden; /* 禁止全體橡皮筋效果 */
+            overscroll-behavior: none;
         }
 
-        /* 響應式頂部控制列 */
+        /* 動態背景 */
+        #bg-blur {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-size: cover;
+            background-position: center;
+            filter: blur(80px) brightness(0.4);
+            z-index: -1;
+            transition: background-image 1.5s ease;
+        }
+
+        /* RWD 頂部 Header */
         .header {
-            padding: calc(var(--safe-area-inset-top) + 20px) 20px 20px;
-            background: var(--header-bg);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            z-index: 100;
+            padding: calc(env(safe-area-inset-top) + 20px) 20px 20px;
+            background: var(--glass);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 100;
         }
 
-        .control-panel {
-            max-width: 800px;
-            margin: 0 auto;
-            width: 100%;
+        .container { max-width: 800px; margin: 0 auto; width: 100%; }
+
+        /* 播放中資訊樣式 */
+        #now-playing {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 18px;
+            opacity: 0;
+            transition: opacity 0.5s;
         }
+        #album-art { width: 55px; height: 55px; border-radius: 8px; object-fit: cover; }
+        .track-info { flex: 1; overflow: hidden; }
+        .track-info h4 { font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .track-info p { color: var(--accent); font-weight: 600; font-size: 0.9rem; }
+
+        /* 進度條設計 */
+        .progress-container { width: 100%; height: 4px; background: rgba(255,255,255,0.1); margin-top: 8px; border-radius: 2px; }
+        #progress-bar { height: 100%; width: 0%; background: var(--accent); border-radius: 2px; }
 
         input {
-            width: 100%;
-            padding: 14px 18px;
-            border-radius: 14px;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            color: white;
-            font-size: 16px; /* 避免手機輸入自動放大 */
-            outline: none;
-            transition: all 0.3s;
+            width: 100%; padding: 14px 18px; border-radius: 12px;
+            background: rgba(255,255,255,0.1); border: 1px solid transparent;
+            color: white; font-size: 16px; outline: none; transition: 0.3s;
         }
+        input:focus { border-color: var(--accent); background: rgba(255,255,255,0.15); }
 
-        input:focus { border-color: var(--accent); background: #222; }
-
-        .mode-selector {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
+        .mode-selector { display: flex; gap: 10px; margin-top: 15px; }
         button {
-            flex: 1;
-            padding: 10px;
-            border-radius: 10px;
-            border: none;
-            background: rgba(255,255,255,0.05);
-            color: var(--text-dim);
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.3s;
-            font-size: 14px;
+            flex: 1; padding: 12px; border-radius: 10px; border: none;
+            background: rgba(255,255,255,0.05); color: var(--text-dim);
+            font-weight: 700; cursor: pointer; transition: 0.3s;
         }
+        button.active { background: var(--accent); color: #000; }
 
-        button.active {
-            background: var(--accent);
-            color: #000;
-        }
-
-        /* 萬用歌詞容器 */
+        /* 歌詞區域核心：處理捲動與對齊 */
         #lyrics-viewport {
-            flex: 1;
+            height: calc(100vh - 200px); /* 扣除 Header 大約高度 */
             width: 100%;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch; /* iOS 流暢捲動 */
+            padding: 0 30px;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            /* 預設內容少時垂直置中 */
-            justify-content: center; 
-            padding: 0 25px;
-            scroll-behavior: smooth;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior-y: none;
+            overscroll-behavior-y: contain; /* 防止捲動傳遞到 Body */
         }
-
-        /* 當歌詞長度超過螢幕時，切換為從頭開始排的 Class */
-        #lyrics-viewport.scrollable {
-            justify-content: flex-start;
-        }
-
-        /* 預留底部與頂部空間，讓歌詞能捲動到中間 */
-        #lyrics-viewport.scrollable::before,
-        #lyrics-viewport.scrollable::after {
-            content: "";
-            display: block;
-            min-height: 45vh;
-            flex-shrink: 0;
+        
+        /* 歌詞占位：確保第一句跟最後一句能置中 */
+        #lyrics-viewport::before, #lyrics-viewport::after {
+            content: ""; display: block; min-height: 45vh; flex-shrink: 0;
         }
 
         .lrc-line {
-            width: 100%;
-            max-width: 700px;
-            padding: 22px 0;
-            font-size: clamp(1.4rem, 4vw, 2.2rem); /* 根據螢幕大小自動縮放字體 */
-            font-weight: 800;
-            text-align: center;
+            width: 100%; max-width: 600px; padding: 25px 0;
+            font-size: clamp(1.6rem, 6vw, 2.8rem); /* RWD 字體大小 */
+            font-weight: 800; line-height: 1.3;
             color: var(--text-dim);
-            transition: all 0.5s cubic-bezier(0.12, 0, 0.39, 0);
-            flex-shrink: 0;
-            user-select: none;
+            transition: color 0.4s, transform 0.4s;
+            cursor: pointer;
         }
+        .lrc-line.active { color: var(--text-active); transform: scale(1.05); }
 
-        .lrc-line.active {
-            color: var(--text-active);
-            transform: scale(1.05);
+        #error-overlay {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: #ff4444; color: white; padding: 10px 20px;
+            border-radius: 20px; font-size: 14px; display: none; z-index: 1000;
         }
-
-        /* 桌機端優化捲動條 */
-        #lyrics-viewport::-webkit-scrollbar { width: 4px; }
-        #lyrics-viewport::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
     </style>
 </head>
 <body>
 
+<div id="bg-blur"></div>
+
 <header class="header">
-    <div class="control-panel">
-        <input type="text" id="search-bar" placeholder="輸入歌曲名稱並按 Enter...">
+    <div class="container">
+        <div id="now-playing">
+            <img id="album-art" src="" alt="">
+            <div class="track-info">
+                <h4 id="track-name">Loading...</h4>
+                <p id="artist-name">Spotify</p>
+                <div class="progress-container"><div id="progress-bar"></div></div>
+            </div>
+        </div>
+
+        <input type="text" id="search-bar" placeholder="搜尋歌曲歌詞...">
+        
         <div class="mode-selector">
-            <button id="search-mode" class="active">搜尋模式</button>
-            <button id="live-mode">LIVE 模式</button>
+            <button id="btn-search" class="active">搜尋模式</button>
+            <button id="btn-live">LIVE 模式</button>
         </div>
     </div>
 </header>
 
-<main id="lyrics-viewport">
-    <div class="lrc-line active">Ready</div>
-    <div class="lrc-line">輸入歌曲名稱開始</div>
-</main>
+<main id="lyrics-viewport"></main>
+
+<div id="error-overlay"></div>
 
 <script>
+    const API_BASE = "https://lyrics-back.vercel.app";
     const viewport = document.getElementById('lyrics-viewport');
-    const searchInput = document.getElementById('search-bar');
-    let lyricsArray = [];
+    const searchBar = document.getElementById('search-bar');
+    
+    // 延遲處理核心變數 (Interpolation)
+    let lastApiTime = 0;      // API 給的毫秒
+    let localStartTime = 0;   // 收到 API 資料時的效能計時
+    let isPlaying = false;
+    let currentDuration = 0;
+    let currentTrackId = "";
+    let lyricsData = [];
 
-    // 自動切換捲動邏輯
-    function checkScrollable() {
-        if (viewport.scrollHeight > viewport.clientHeight) {
-            viewport.classList.add('scrollable');
-        } else {
-            viewport.classList.remove('scrollable');
+    // --- 延遲優化：平滑渲染器 (60FPS) ---
+    function smoothRender() {
+        if (isPlaying && lyricsData.length > 0) {
+            // 計算虛擬的「現在時間」
+            const now = performance.now();
+            const timePassed = now - localStartTime;
+            const currentTotalMs = lastApiTime + timePassed;
+            
+            // 更新進度條
+            const progressPercent = Math.min((currentTotalMs / currentDuration) * 100, 100);
+            document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+
+            // 同步歌詞
+            syncLyrics(currentTotalMs / 1000);
+        }
+        requestAnimationFrame(smoothRender);
+    }
+
+    // --- LIVE 數據校對 (每 4 秒與伺服器對時一次) ---
+    async function fetchLiveStatus() {
+        if (document.getElementById('btn-live').className !== 'active') return;
+
+        try {
+            const res = await fetch(`${API_BASE}/api/current`);
+            const data = await res.json();
+
+            if (data.status_code === 403) {
+                showError("需要 Spotify Premium");
+                return;
+            }
+
+            if (data.item && data.is_playing) {
+                lastApiTime = data.progress_ms;
+                localStartTime = performance.now();
+                currentDuration = data.item.duration_ms;
+                isPlaying = true;
+                document.getElementById('now-playing').style.opacity = 1;
+
+                if (currentTrackId !== data.item.id) {
+                    currentTrackId = data.item.id;
+                    updateTrackUI(data.item);
+                    fetchLyrics(data.item.name, data.item.artists[0].name);
+                }
+            } else {
+                isPlaying = false;
+            }
+        } catch (err) { console.error("Poll error:", err); }
+    }
+
+    function updateTrackUI(track) {
+        document.getElementById('track-name').innerText = track.name;
+        document.getElementById('artist-name').innerText = track.artists[0].name;
+        document.getElementById('album-art').src = track.album.images[0].url;
+        document.getElementById('bg-blur').style.backgroundImage = `url(${track.album.images[0].url})`;
+    }
+
+    // --- 歌詞處理 ---
+    async function fetchLyrics(track, artist) {
+        try {
+            const res = await fetch(`${API_BASE}/api/get?track_name=${encodeURIComponent(track)}&artist_name=${encodeURIComponent(artist)}`);
+            const data = await res.json();
+            renderLyrics(data.syncedLyrics);
+        } catch (err) {
+            viewport.innerHTML = '<div class="lrc-line">無法載入歌詞</div>';
         }
     }
 
-    // 處理搜尋
-    searchInput.addEventListener('keypress', async (e) => {
-        if (e.key === 'Enter') {
-            const query = e.target.value;
-            if(!query) return;
-
-            // 這裡接入你部署在 Vercel 或 Replit 的 API 網址
-            try {
-                const res = await fetch(`/api/get?track_name=${encodeURIComponent(query)}&artist_name=`);
-                const data = await res.json();
-                render(data.syncedLyrics);
-            } catch (err) {
-                console.error("Fetch Error:", err);
-            }
-        }
-    });
-
-    function render(rawLRC) {
+    function renderLyrics(lrc) {
         viewport.innerHTML = '';
-        // 兼容多種 LRC 換行格式
-        const lines = Array.isArray(rawLRC) ? rawLRC : rawLRC.split('\n');
-        
-        lyricsArray = lines.map((line, index) => {
+        const lines = Array.isArray(lrc) ? lrc : lrc.split('\n');
+        lyricsData = lines.map((line, i) => {
             const match = line.match(/\[(\d{2}):(\d{2}\.\d{2})\](.*)/);
-            const text = match ? match[3].trim() : line.trim();
-            const time = match ? (parseInt(match[1]) * 60 + parseFloat(match[2])) : 0;
-
+            if (!match) return null;
+            const time = parseInt(match[1]) * 60 + parseFloat(match[2]);
             const div = document.createElement('div');
             div.className = 'lrc-line';
-            div.id = `line-${index}`;
-            div.innerText = text || "•••";
+            div.innerText = match[3].trim() || "•••";
             viewport.appendChild(div);
-
             return { time, element: div };
-        }).filter(item => item.text !== "");
-
-        checkScrollable();
+        }).filter(x => x);
     }
 
-    // 模式切換按鈕視覺
-    document.querySelectorAll('.mode-selector button').forEach(btn => {
-        btn.onclick = () => {
-            document.querySelectorAll('.mode-selector button').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-        };
+    function syncLyrics(sec) {
+        let activeIndex = lyricsData.findIndex((l, i) => sec >= l.time && (!lyricsData[i+1] || sec < lyricsData[i+1].time));
+        if (activeIndex !== -1) {
+            const el = lyricsData[activeIndex].element;
+            if (!el.classList.contains('active')) {
+                document.querySelectorAll('.lrc-line').forEach(l => l.classList.remove('active'));
+                el.classList.add('active');
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }
+
+    // --- 模式切換與初始化 ---
+    function showError(m) {
+        const err = document.getElementById('error-overlay');
+        err.innerText = m; err.style.display = 'block';
+        setTimeout(() => err.style.display = 'none', 5000);
+    }
+
+    document.getElementById('btn-live').onclick = () => {
+        document.getElementById('btn-search').classList.remove('active');
+        document.getElementById('btn-live').classList.add('active');
+        searchBar.style.display = 'none';
+        fetchLiveStatus();
+    };
+
+    document.getElementById('btn-search').onclick = () => {
+        document.getElementById('btn-live').classList.remove('active');
+        document.getElementById('btn-search').classList.add('active');
+        searchBar.style.display = 'block';
+    };
+
+    searchBar.addEventListener('keypress', e => {
+        if (e.key === 'Enter') fetchLyrics(e.target.value, "");
     });
 
-    // 視窗大小改變時重新計算捲動
-    window.onresize = checkScrollable;
+    // 啟動！
+    requestAnimationFrame(smoothRender);
+    setInterval(fetchLiveStatus, 4000); 
 </script>
-
 </body>
 </html>
