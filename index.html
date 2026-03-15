@@ -2,24 +2,26 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Get Lyrics - Home</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; }
-        .btn { padding: 15px 30px; font-size: 20px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; text-decoration: none; }
-        .btn:hover { background: #0056b3; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .btn { display: inline-block; padding: 15px 30px; font-size: 18px; background: #007bff; color: white; border-radius: 8px; text-decoration: none; margin-top: 20px; width: 80%; }
+        ul { text-align: left; display: inline-block; }
     </style>
 </head>
 <body>
-    <h1>歡迎來到歌詞搜尋器</h1>
-    <p>這是一個可以搜尋歌詞的工具，使用LRCLib的API獲取歌詞資料。</p>
-    <div style="text-align: left; max-width: 400px; margin: 20px auto;">
+    <div class="container">
+        <h1>歡迎來到歌詞搜尋</h1>
+        <p>這是一個可以搜尋歌詞的工具。</p>
         <h3>使用說明：</h3>
         <ul>
             <li>輸入歌名，例如：<b>Yellow</b></li>
-            <li>若想更精準，請用「歌名, 歌手」格式，例如：<b>Yellow, Coldplay</b></li>
+            <li>想更精準，請用「歌名, 歌手」格式，例如：<b>Yellow, Coldplay</b></li>
         </ul>
+        <br>
+        <a href="lyrics.html" class="btn">開始搜尋</a>
     </div>
-    <br>
-    <a href="lyrics.html" class="btn">開始搜尋</a>
 </body>
 </html>
