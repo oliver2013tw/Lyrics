@@ -5,22 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Get Lyrics - Home</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; line-height: 1.6; }
-        .container { max-width: 600px; margin: 0 auto; }
-        .btn { display: inline-block; padding: 15px 30px; font-size: 18px; background: #007bff; color: white; border-radius: 8px; text-decoration: none; margin-top: 20px; width: 80%; }
-        ul { text-align: left; display: inline-block; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; }
+        .card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; }
+        .btn { display: block; margin-top: 30px; padding: 15px; background: white; color: #764ba2; font-weight: bold; border-radius: 50px; text-decoration: none; transition: transform 0.2s; }
+        .btn:hover { transform: scale(1.05); }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>歡迎來到歌詞搜尋</h1>
-        <p>這是一個可以搜尋歌詞的工具。</p>
-        <h3>使用說明：</h3>
-        <ul>
+    <div class="card">
+        <h1>歌詞搜尋</h1>
+        <p>歌詞搜尋工具</p>
+        <ul style="text-align: left; font-size: 0.9em; opacity: 0.9;">
             <li>輸入歌名，例如：<b>Yellow</b></li>
-            <li>想更精準，請用「歌名, 歌手」格式，例如：<b>Yellow, Coldplay</b></li>
+            <li>精準模式：<b>歌名, 歌手</b></li>
         </ul>
-        <br>
         <a href="lyrics.html" class="btn">開始搜尋</a>
     </div>
 </body>
