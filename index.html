@@ -5,278 +5,416 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Spotify Live Lyrics</title>
     <style>
+        /* =========================================
+           1. Design Tokens (CSS 變數系統)
+        ========================================= */
         :root {
-            --bg: #000000;
-            --accent: #1DB954;
-            --text-active: #ffffff;
-            --text-dim: rgba(255, 255, 255, 0.3);
-            --glass: rgba(15, 15, 15, 0.85);
+            --color-bg: #000000;
+            --color-surface: rgba(15, 15, 15, 0.75);
+            --color-primary: #1DB954;
+            --color-text-primary: #ffffff;
+            --color-text-secondary: rgba(255, 255, 255, 0.4);
+            --color-error: #FF453A;
+            
+            --glass-blur: blur(25px);
+            --radius-lg: 20px;
+            --radius-md: 12px;
+            
+            /* 安全區域適配 */
+            --safe-top: env(safe-area-inset-top, 20px);
+            --safe-bottom: env(safe-area-inset-bottom, 20px);
         }
 
-        /* 基礎重置與過度捲動處理 */
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+        /* =========================================
+           2. 基礎重置與 App 級別佈局
+        ========================================= */
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         
-        html, body {
-            height: 100%;
-            background-color: var(--bg);
-            color: var(--text-active);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            overflow: hidden; /* 禁止全體橡皮筋效果 */
+        body {
+            background-color: var(--color-bg);
+            color: var(--color-text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            /* 使用 dvh 解決手機瀏覽器網址列伸縮與鍵盤彈出問題 */
+            height: 100vh; height: 100dvh; 
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
             overscroll-behavior: none;
         }
 
-        /* 動態背景 */
-        #bg-blur {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-size: cover;
-            background-position: center;
-            filter: blur(80px) brightness(0.4);
-            z-index: -1;
-            transition: background-image 1.5s ease;
+        /* 動態模糊背景 */
+        #app-bg {
+            position: fixed; inset: -10%; width: 120%; height: 120%;
+            background-size: cover; background-position: center;
+            filter: blur(60px) brightness(0.3);
+            z-index: -1; transition: background-image 1.2s ease-in-out;
         }
 
-        /* RWD 頂部 Header */
-        .header {
-            padding: calc(env(safe-area-inset-top) + 20px) 20px 20px;
-            background: var(--glass);
-            backdrop-filter: blur(30px);
-            -webkit-backdrop-filter: blur(30px);
+        /* =========================================
+           3. 頂部狀態列 (Header / App Bar)
+        ========================================= */
+        .top-bar {
+            padding-top: calc(var(--safe-top) + 10px);
+            background: var(--color-surface);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            z-index: 100;
+            z-index: 10;
+            position: relative;
+            flex-shrink: 0;
+            min-height: calc(var(--safe-top) + 70px);
         }
 
-        .container { max-width: 800px; margin: 0 auto; width: 100%; }
-
-        /* 播放中資訊樣式 */
-        #now-playing {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 18px;
-            opacity: 0;
-            transition: opacity 0.5s;
+        .header-content {
+            padding: 0 20px 15px;
+            max-width: 600px;
+            margin: 0 auto;
+            position: relative;
         }
-        #album-art { width: 55px; height: 55px; border-radius: 8px; object-fit: cover; }
-        .track-info { flex: 1; overflow: hidden; }
-        .track-info h4 { font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .track-info p { color: var(--accent); font-weight: 600; font-size: 0.9rem; }
 
-        /* 進度條設計 */
-        .progress-container { width: 100%; height: 4px; background: rgba(255,255,255,0.1); margin-top: 8px; border-radius: 2px; }
-        #progress-bar { height: 100%; width: 0%; background: var(--accent); border-radius: 2px; }
+        /* 視圖切換容器 */
+        .view-header { display: none; animation: fadeIn 0.3s ease forwards; }
+        .view-header.active { display: block; }
 
-        input {
-            width: 100%; padding: 14px 18px; border-radius: 12px;
-            background: rgba(255,255,255,0.1); border: 1px solid transparent;
+        /* 搜尋輸入框 */
+        .search-input-wrapper input {
+            width: 100%; padding: 12px 16px; border-radius: var(--radius-md);
+            background: rgba(255, 255, 255, 0.1); border: 1px solid transparent;
             color: white; font-size: 16px; outline: none; transition: 0.3s;
         }
-        input:focus { border-color: var(--accent); background: rgba(255,255,255,0.15); }
-
-        .mode-selector { display: flex; gap: 10px; margin-top: 15px; }
-        button {
-            flex: 1; padding: 12px; border-radius: 10px; border: none;
-            background: rgba(255,255,255,0.05); color: var(--text-dim);
-            font-weight: 700; cursor: pointer; transition: 0.3s;
+        .search-input-wrapper input:focus {
+            background: rgba(255, 255, 255, 0.15); border-color: var(--color-primary);
         }
-        button.active { background: var(--accent); color: #000; }
 
-        /* 歌詞區域核心：處理捲動與對齊 */
-        #lyrics-viewport {
-            height: calc(100vh - 200px); /* 扣除 Header 大約高度 */
-            width: 100%;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch; /* iOS 流暢捲動 */
-            padding: 0 30px;
-            display: flex;
-            flex-direction: column;
-            overscroll-behavior-y: contain; /* 防止捲動傳遞到 Body */
-        }
+        /* 播放狀態卡片 */
+        .now-playing { display: flex; align-items: center; gap: 12px; }
+        .now-playing img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; }
+        .track-info { flex: 1; overflow: hidden; }
+        .track-info h4 { font-size: 15px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .track-info p { font-size: 13px; color: var(--color-primary); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        /* 歌詞占位：確保第一句跟最後一句能置中 */
-        #lyrics-viewport::before, #lyrics-viewport::after {
-            content: ""; display: block; min-height: 45vh; flex-shrink: 0;
+        /* 隱藏式進度條 (貼齊 Header 底部邊緣) */
+        .progress-bar-container {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 2px;
+            background: transparent;
         }
+        .progress-bar-fill { height: 100%; width: 0%; background: var(--color-primary); transition: width 0.1s linear; }
+
+        /* =========================================
+           4. 歌詞顯示區 (Main Content)
+        ========================================= */
+        #lyrics-viewport {
+            flex: 1; width: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            padding: 0 24px; display: flex; flex-direction: column;
+            scroll-behavior: smooth;
+        }
+        #lyrics-viewport::before, #lyrics-viewport::after { content: ""; display: block; min-height: 35vh; flex-shrink: 0; }
 
         .lrc-line {
-            width: 100%; max-width: 600px; padding: 25px 0;
-            font-size: clamp(1.6rem, 6vw, 2.8rem); /* RWD 字體大小 */
-            font-weight: 800; line-height: 1.3;
-            color: var(--text-dim);
-            transition: color 0.4s, transform 0.4s;
-            cursor: pointer;
+            width: 100%; max-width: 600px; margin: 0 auto; padding: 18px 0;
+            font-size: clamp(1.4rem, 5vw, 2.2rem); font-weight: 800; line-height: 1.4;
+            color: var(--color-text-secondary); text-align: left;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); transform-origin: left center; cursor: pointer;
         }
-        .lrc-line.active { color: var(--text-active); transform: scale(1.05); }
+        .lrc-line.active { color: var(--color-text-primary); transform: scale(1.05); }
 
-        #error-overlay {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: #ff4444; color: white; padding: 10px 20px;
-            border-radius: 20px; font-size: 14px; display: none; z-index: 1000;
+        .empty-state {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-align: center; color: var(--color-text-secondary); width: 100%; pointer-events: none;
         }
+        .empty-state svg { width: 48px; height: 48px; opacity: 0.5; margin-bottom: 12px; }
+
+        /* =========================================
+           5. 底部導航列 (Bottom Tab Bar)
+        ========================================= */
+        .bottom-nav {
+            flex-shrink: 0;
+            background: var(--color-surface);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: var(--safe-bottom);
+            display: flex; justify-content: space-around; align-items: center;
+            z-index: 10;
+        }
+
+        .nav-item {
+            flex: 1; padding: 12px 0;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            background: transparent; border: none; color: var(--color-text-secondary);
+            font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.3s;
+        }
+        .nav-item svg { width: 24px; height: 24px; stroke: currentColor; transition: 0.3s; }
+        
+        .nav-item.active { color: var(--color-text-primary); }
+        .nav-item.active svg { stroke: var(--color-primary); transform: scale(1.1); }
+
+        /* Toast */
+        #toast {
+            position: fixed; bottom: calc(var(--safe-bottom) + 80px); left: 50%; transform: translateX(-50%) translateY(20px);
+            background: var(--color-error); color: white; padding: 10px 20px;
+            border-radius: 100px; font-size: 13px; font-weight: 600; opacity: 0; pointer-events: none; transition: 0.3s; z-index: 1000;
+        }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
-<div id="bg-blur"></div>
+<div id="app-bg"></div>
 
-<header class="header">
-    <div class="container">
-        <div id="now-playing">
-            <img id="album-art" src="" alt="">
-            <div class="track-info">
-                <h4 id="track-name">Loading...</h4>
-                <p id="artist-name">Spotify</p>
-                <div class="progress-container"><div id="progress-bar"></div></div>
+<header class="top-bar">
+    <div class="header-content">
+        <div id="header-search" class="view-header active">
+            <div class="search-input-wrapper">
+                <input type="text" id="search-input" placeholder="搜尋歌曲..." autocomplete="off">
             </div>
         </div>
 
-        <input type="text" id="search-bar" placeholder="搜尋歌曲歌詞...">
-        
-        <div class="mode-selector">
-            <button id="btn-search" class="active">搜尋模式</button>
-            <button id="btn-live">LIVE 模式</button>
+        <div id="header-live" class="view-header">
+            <div class="now-playing">
+                <img id="album-cover" src="" alt="Cover">
+                <div class="track-info">
+                    <h4 id="track-title">等待播放...</h4>
+                    <p id="track-artist">Spotify Offline</p>
+                </div>
+            </div>
         </div>
     </div>
+    <div class="progress-bar-container"><div class="progress-bar-fill" id="progress-bar"></div></div>
 </header>
 
-<main id="lyrics-viewport"></main>
+<main id="lyrics-viewport">
+    <div class="empty-state" id="empty-state">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+        <p>準備就緒</p>
+    </div>
+</main>
 
-<div id="error-overlay"></div>
+<nav class="bottom-nav">
+    <button class="nav-item active" id="tab-search" onclick="appState.setMode('search')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <span>搜尋</span>
+    </button>
+    <button class="nav-item" id="tab-live" onclick="appState.setMode('live')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 18V5l12-2v13"></path>
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="18" cy="16" r="3"></circle>
+        </svg>
+        <span>LIVE</span>
+    </button>
+</nav>
+
+<div id="toast"></div>
 
 <script>
     const API_BASE = "https://lyrics-back.vercel.app";
-    const viewport = document.getElementById('lyrics-viewport');
-    const searchBar = document.getElementById('search-bar');
     
-    // 延遲處理核心變數 (Interpolation)
-    let lastApiTime = 0;      // API 給的毫秒
-    let localStartTime = 0;   // 收到 API 資料時的效能計時
-    let isPlaying = false;
-    let currentDuration = 0;
-    let currentTrackId = "";
-    let lyricsData = [];
+    const DOM = {
+        bg: document.getElementById('app-bg'),
+        viewport: document.getElementById('lyrics-viewport'),
+        emptyState: document.getElementById('empty-state'),
+        searchInput: document.getElementById('search-input'),
+        headerSearch: document.getElementById('header-search'),
+        headerLive: document.getElementById('header-live'),
+        tabSearch: document.getElementById('tab-search'),
+        tabLive: document.getElementById('tab-live'),
+        toast: document.getElementById('toast'),
+        trackTitle: document.getElementById('track-title'),
+        trackArtist: document.getElementById('track-artist'),
+        albumCover: document.getElementById('album-cover'),
+        progressBar: document.getElementById('progress-bar')
+    };
 
-    // --- 延遲優化：平滑渲染器 (60FPS) ---
-    function smoothRender() {
-        if (isPlaying && lyricsData.length > 0) {
-            // 計算虛擬的「現在時間」
-            const now = performance.now();
-            const timePassed = now - localStartTime;
-            const currentTotalMs = lastApiTime + timePassed;
+    const appState = {
+        mode: 'search', 
+        isPlaying: false,
+        currentTrackId: null,
+        duration: 0,
+        lastApiTime: 0,
+        localStartTime: 0,
+        lyrics: [],
+        pollInterval: null,
+
+        setMode(newMode) {
+            this.mode = newMode;
             
-            // 更新進度條
-            const progressPercent = Math.min((currentTotalMs / currentDuration) * 100, 100);
-            document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+            // 切換底部 Tab 樣式
+            DOM.tabSearch.classList.toggle('active', newMode === 'search');
+            DOM.tabLive.classList.toggle('active', newMode === 'live');
+            
+            // 切換頂部 Header 視圖
+            if (newMode === 'live') {
+                DOM.headerSearch.classList.remove('active');
+                DOM.headerLive.classList.add('active');
+                DOM.progressBar.style.display = 'block';
+                this.startLivePolling();
+            } else {
+                DOM.headerLive.classList.remove('active');
+                DOM.headerSearch.classList.add('active');
+                DOM.progressBar.style.display = 'none';
+                this.stopLivePolling();
+                DOM.bg.style.backgroundImage = 'none';
+            }
+        },
 
-            // 同步歌詞
-            syncLyrics(currentTotalMs / 1000);
+        startLivePolling() {
+            liveService.fetchStatus();
+            this.pollInterval = setInterval(() => liveService.fetchStatus(), 4000);
+            requestAnimationFrame(liveService.renderLoop);
+        },
+
+        stopLivePolling() {
+            clearInterval(this.pollInterval);
+            this.isPlaying = false;
         }
-        requestAnimationFrame(smoothRender);
-    }
+    };
 
-    // --- LIVE 數據校對 (每 4 秒與伺服器對時一次) ---
-    async function fetchLiveStatus() {
-        if (document.getElementById('btn-live').className !== 'active') return;
+    const uiUtils = {
+        showToast(message) {
+            DOM.toast.textContent = message;
+            DOM.toast.classList.add('show');
+            setTimeout(() => DOM.toast.classList.remove('show'), 3500);
+        },
+        clearLyrics() {
+            DOM.viewport.innerHTML = '';
+            appState.lyrics = [];
+        },
+        showEmptyState(show) {
+            if (show) {
+                this.clearLyrics();
+                DOM.viewport.appendChild(DOM.emptyState);
+            } else if (DOM.emptyState.parentNode) {
+                DOM.emptyState.remove();
+            }
+        }
+    };
 
-        try {
-            const res = await fetch(`${API_BASE}/api/current`);
-            const data = await res.json();
-
-            if (data.status_code === 403) {
-                showError("需要 Spotify Premium");
+    const lyricsService = {
+        async fetch(track, artist) {
+            uiUtils.showEmptyState(false);
+            DOM.viewport.innerHTML = '<div class="lrc-line">正在尋找歌詞...</div>';
+            try {
+                const res = await fetch(`${API_BASE}/api/get?track_name=${encodeURIComponent(track)}&artist_name=${encodeURIComponent(artist)}`);
+                const data = await res.json();
+                this.render(data.syncedLyrics || []);
+            } catch (err) {
+                DOM.viewport.innerHTML = '<div class="lrc-line">無法載入歌詞</div>';
+            }
+        },
+        
+        render(lrcRaw) {
+            uiUtils.clearLyrics();
+            const lines = Array.isArray(lrcRaw) ? lrcRaw : lrcRaw.split('\n');
+            
+            if (lines.length === 0 || !lrcRaw) {
+                DOM.viewport.innerHTML = '<div class="lrc-line">此歌曲無動態歌詞</div>';
                 return;
             }
 
-            if (data.item && data.is_playing) {
-                lastApiTime = data.progress_ms;
-                localStartTime = performance.now();
-                currentDuration = data.item.duration_ms;
-                isPlaying = true;
-                document.getElementById('now-playing').style.opacity = 1;
+            appState.lyrics = lines.map((line, i) => {
+                const match = line.match(/\[(\d{2}):(\d{2}\.\d{2,3})\](.*)/);
+                if (!match) return null;
+                const time = parseInt(match[1]) * 60 + parseFloat(match[2]);
+                const text = match[3].trim();
+                
+                const div = document.createElement('div');
+                div.className = 'lrc-line';
+                div.textContent = text || "•••";
+                DOM.viewport.appendChild(div);
+                return { time, element: div };
+            }).filter(Boolean);
+        },
 
-                if (currentTrackId !== data.item.id) {
-                    currentTrackId = data.item.id;
-                    updateTrackUI(data.item);
-                    fetchLyrics(data.item.name, data.item.artists[0].name);
+        sync(currentSeconds) {
+            const data = appState.lyrics;
+            const activeIndex = data.findIndex((l, i) => currentSeconds >= l.time && (!data[i+1] || currentSeconds < data[i+1].time));
+            
+            if (activeIndex !== -1) {
+                const el = data[activeIndex].element;
+                if (!el.classList.contains('active')) {
+                    document.querySelectorAll('.lrc-line').forEach(l => l.classList.remove('active'));
+                    el.classList.add('active');
+                    // 更平滑的捲動置中對齊
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
-            } else {
-                isPlaying = false;
-            }
-        } catch (err) { console.error("Poll error:", err); }
-    }
-
-    function updateTrackUI(track) {
-        document.getElementById('track-name').innerText = track.name;
-        document.getElementById('artist-name').innerText = track.artists[0].name;
-        document.getElementById('album-art').src = track.album.images[0].url;
-        document.getElementById('bg-blur').style.backgroundImage = `url(${track.album.images[0].url})`;
-    }
-
-    // --- 歌詞處理 ---
-    async function fetchLyrics(track, artist) {
-        try {
-            const res = await fetch(`${API_BASE}/api/get?track_name=${encodeURIComponent(track)}&artist_name=${encodeURIComponent(artist)}`);
-            const data = await res.json();
-            renderLyrics(data.syncedLyrics);
-        } catch (err) {
-            viewport.innerHTML = '<div class="lrc-line">無法載入歌詞</div>';
-        }
-    }
-
-    function renderLyrics(lrc) {
-        viewport.innerHTML = '';
-        const lines = Array.isArray(lrc) ? lrc : lrc.split('\n');
-        lyricsData = lines.map((line, i) => {
-            const match = line.match(/\[(\d{2}):(\d{2}\.\d{2})\](.*)/);
-            if (!match) return null;
-            const time = parseInt(match[1]) * 60 + parseFloat(match[2]);
-            const div = document.createElement('div');
-            div.className = 'lrc-line';
-            div.innerText = match[3].trim() || "•••";
-            viewport.appendChild(div);
-            return { time, element: div };
-        }).filter(x => x);
-    }
-
-    function syncLyrics(sec) {
-        let activeIndex = lyricsData.findIndex((l, i) => sec >= l.time && (!lyricsData[i+1] || sec < lyricsData[i+1].time));
-        if (activeIndex !== -1) {
-            const el = lyricsData[activeIndex].element;
-            if (!el.classList.contains('active')) {
-                document.querySelectorAll('.lrc-line').forEach(l => l.classList.remove('active'));
-                el.classList.add('active');
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }
-    }
-
-    // --- 模式切換與初始化 ---
-    function showError(m) {
-        const err = document.getElementById('error-overlay');
-        err.innerText = m; err.style.display = 'block';
-        setTimeout(() => err.style.display = 'none', 5000);
-    }
-
-    document.getElementById('btn-live').onclick = () => {
-        document.getElementById('btn-search').classList.remove('active');
-        document.getElementById('btn-live').classList.add('active');
-        searchBar.style.display = 'none';
-        fetchLiveStatus();
     };
 
-    document.getElementById('btn-search').onclick = () => {
-        document.getElementById('btn-live').classList.remove('active');
-        document.getElementById('btn-search').classList.add('active');
-        searchBar.style.display = 'block';
+    const liveService = {
+        async fetchStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/api/current`);
+                const data = await res.json();
+
+                if (data.status_code === 403) {
+                    uiUtils.showToast("需要 Spotify Premium 權限");
+                    appState.isPlaying = false;
+                    return;
+                }
+
+                if (data.item && data.is_playing) {
+                    appState.lastApiTime = data.progress_ms;
+                    appState.localStartTime = performance.now();
+                    appState.duration = data.item.duration_ms;
+                    appState.isPlaying = true;
+
+                    if (appState.currentTrackId !== data.item.id) {
+                        appState.currentTrackId = data.item.id;
+                        this.updateTrackInfo(data.item);
+                        lyricsService.fetch(data.item.name, data.item.artists[0].name);
+                    }
+                } else {
+                    appState.isPlaying = false;
+                    DOM.trackTitle.textContent = "目前未播放";
+                    DOM.trackArtist.textContent = "-";
+                    DOM.progressBar.style.width = '0%';
+                }
+            } catch (err) {
+                console.error("Live sync error:", err);
+            }
+        },
+
+        updateTrackInfo(track) {
+            DOM.trackTitle.textContent = track.name;
+            DOM.trackArtist.textContent = track.artists[0].name;
+            // 抓取最小尺寸封面加快載入速度
+            const imgUrl = track.album.images.length > 1 ? track.album.images[1].url : track.album.images[0].url;
+            DOM.albumCover.src = imgUrl;
+            DOM.bg.style.backgroundImage = `url(${imgUrl})`;
+        },
+
+        renderLoop() {
+            if (appState.mode === 'live' && appState.isPlaying) {
+                const timePassed = performance.now() - appState.localStartTime;
+                const currentMs = appState.lastApiTime + timePassed;
+                
+                const percent = Math.min((currentMs / appState.duration) * 100, 100);
+                DOM.progressBar.style.width = `${percent}%`;
+
+                if (appState.lyrics.length > 0) {
+                    lyricsService.sync(currentMs / 1000);
+                }
+            }
+            if (appState.mode === 'live') {
+                requestAnimationFrame(liveService.renderLoop);
+            }
+        }
     };
 
-    searchBar.addEventListener('keypress', e => {
-        if (e.key === 'Enter') fetchLyrics(e.target.value, "");
+    // 鍵盤搜尋事件
+    DOM.searchInput.addEventListener('keypress', e => {
+        if (e.key === 'Enter' && e.target.value.trim()) {
+            lyricsService.fetch(e.target.value.trim(), "");
+            e.target.blur(); 
+        }
     });
-
-    // 啟動！
-    requestAnimationFrame(smoothRender);
-    setInterval(fetchLiveStatus, 4000); 
 </script>
 </body>
 </html>
