@@ -3,25 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>歌詞搜尋 | Premium Experience</title>
+    <title>歌詞同步播放器 | 專業版</title>
     <style>
-        /* 全局重置 */
+        /* 全局重置與防止拉動 */
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        
         body { 
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
             background: linear-gradient(145deg, #0b0e11 0%, #1a1d23 100%);
-            background-attachment: fixed;
+            height: 100vh;
             color: #ffffff; 
             display: flex; 
             flex-direction: column; 
             align-items: center; 
-            height: 100vh;
-            overflow: hidden; /* 防止主頁面捲動 */
-            padding: 20px 15px;
+            overflow: hidden; 
+            padding: 25px 15px;
         }
 
-        /* 液態玻璃卡片基礎樣式 */
+        /* 液態玻璃卡片 */
         .glass-panel {
             background: rgba(255, 255, 255, 0.03);
             backdrop-filter: blur(20px);
@@ -32,16 +30,6 @@
             max-width: 480px;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
         }
-
-        /* 頂部導覽 */
-        .nav-back {
-            text-decoration: none;
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 14px;
-            margin-bottom: 15px;
-            transition: 0.3s;
-        }
-        .nav-back:hover { color: #1db954; }
 
         /* 搜尋區塊 */
         .search-container {
@@ -59,73 +47,83 @@
             color: white;
             font-size: 15px;
             outline: none;
-            transition: all 0.3s ease;
+            transition: 0.3s;
         }
-        .search-input:focus {
-            border-color: #1db954;
-            background: rgba(0, 0, 0, 0.5);
-            box-shadow: 0 0 15px rgba(29, 185, 84, 0.2);
-        }
+        .search-input:focus { border-color: #1db954; background: rgba(0, 0, 0, 0.5); }
         .search-btn {
-            background: #1db954;
-            color: white;
-            border: none;
-            border-radius: 14px;
-            padding: 0 20px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
+            background: #1db954; color: white; border: none; border-radius: 14px;
+            padding: 0 20px; font-weight: 600; cursor: pointer; transition: 0.2s;
         }
-        .search-btn:active { transform: scale(0.95); }
 
-        /* 歌詞主體區塊 */
+        /* 歌詞/Live 主板塊 */
         .main-display {
             flex: 1;
             display: flex;
             flex-direction: column;
             overflow: hidden;
             margin-bottom: 20px;
+            position: relative;
         }
 
-        /* Live 模式預留頂部 (含 Logo) */
-        .live-header {
-            padding: 15px 0;
+        /* Live 預留區域 (上部分) */
+        .live-preview-top {
+            padding: 20px 0 10px;
             text-align: center;
+            opacity: 0.4; /* 未啟用狀態的透明度 */
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            display: none; /* 預設隱藏，切換模式時可用 */
         }
         .spotify-logo {
-            height: 24px;
+            height: 28px;
             object-fit: contain;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+            margin-bottom: 5px;
+        }
+        .live-tag {
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: #1db954;
+            font-weight: bold;
+            text-transform: uppercase;
         }
 
+        /* 歌詞捲動區 */
         .lyrics-viewport {
             flex: 1;
             overflow-y: auto;
-            padding: 30px 20px;
+            padding: 20px;
             text-align: center;
-            overscroll-behavior: contain; /* 防止拉動網頁 */
+            overscroll-behavior: contain;
             scroll-behavior: smooth;
         }
-
-        /* 隱藏捲軸 */
         .lyrics-viewport::-webkit-scrollbar { width: 4px; }
         .lyrics-viewport::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
         .lyric-line {
-            font-size: 18px;
+            font-size: 19px;
             line-height: 2.2;
-            margin-bottom: 12px;
-            color: rgba(255, 255, 255, 0.6);
-            transition: all 0.4s ease;
-            cursor: default;
+            margin-bottom: 15px;
+            color: rgba(255, 255, 255, 0.7);
+            transition: 0.4s;
         }
-        .lyric-line.active {
-            color: #ffffff;
-            font-weight: 600;
-            transform: scale(1.05);
-            text-shadow: 0 0 20px rgba(255,255,255,0.3);
+
+        /* 載入動畫 (Spotify Style Bars) */
+        .loader {
+            display: none; /* 預設隱藏 */
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            height: 50px;
+            margin-top: 40%;
+        }
+        .loader span {
+            width: 4px; height: 20px; background: #1db954;
+            animation: loading 1.2s infinite ease-in-out;
+        }
+        .loader span:nth-child(2) { animation-delay: 0.1s; }
+        .loader span:nth-child(3) { animation-delay: 0.2s; }
+        .loader span:nth-child(4) { animation-delay: 0.3s; }
+        @keyframes loading {
+            0%, 40%, 100% { transform: scaleY(0.4); }
+            20% { transform: scaleY(1); }
         }
 
         /* 底部模式切換 */
@@ -135,62 +133,56 @@
             background: rgba(0, 0, 0, 0.4);
             border-radius: 50px;
             width: 100%;
-            max-width: 350px;
+            max-width: 320px;
         }
         .mode-item {
-            flex: 1;
-            padding: 10px;
-            text-align: center;
-            font-size: 13px;
-            font-weight: 600;
-            border-radius: 40px;
-            cursor: pointer;
-            transition: 0.3s;
-            color: rgba(255, 255, 255, 0.4);
+            flex: 1; padding: 10px; text-align: center; font-size: 13px; font-weight: 600;
+            border-radius: 40px; color: rgba(255, 255, 255, 0.4);
         }
-        .mode-item.active {
-            background: rgba(255, 255, 255, 0.1);
-            color: #ffffff;
-        }
+        .mode-item.active { background: rgba(255, 255, 255, 0.1); color: #ffffff; }
         .mode-item.disabled {
-            opacity: 0.3;
+            opacity: 0.2;
             cursor: not-allowed;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
+        .coming-soon { font-size: 8px; color: #1db954; margin-top: 2px; }
 
-        /* 訊息提示 */
-        .status-msg {
-            color: rgba(255, 255, 255, 0.4);
-            margin-top: 40%;
-            font-size: 15px;
-        }
+        .status-msg { color: rgba(255, 255, 255, 0.3); margin-top: 40%; font-size: 14px; }
     </style>
 </head>
 <body>
 
-    <a href="index.html" class="nav-back">← 返回</a>
-
     <div class="glass-panel search-container">
-        <input type="text" id="searchInput" class="search-input" placeholder="輸入：歌名,歌手" autocomplete="off">
+        <input type="text" id="searchInput" class="search-input" placeholder="歌名,歌手..." autocomplete="off">
         <button onclick="searchLyrics()" class="search-btn">搜尋</button>
     </div>
 
     <div class="glass-panel main-display">
-        <div id="liveHeader" class="live-header">
+        <div class="live-preview-top">
             <img src="Spotify.png" alt="Spotify" class="spotify-logo">
+            <div class="live-tag">Live Sync Off</div>
         </div>
         
         <div id="lyricsViewport" class="lyrics-viewport">
-            <div class="status-msg">請輸入歌名開始同步</div>
+            <div id="loader" class="loader">
+                <span></span><span></span><span></span><span></span>
+            </div>
+            <div id="statusMsg" class="status-msg">輸入歌名，開啟視覺與聽覺的連結</div>
         </div>
     </div>
 
     <div class="mode-bar">
-        <div class="mode-item active">搜尋模式</div>
-        <div class="mode-item disabled" title="即將推出">Spotify Live</div>
+        <div class="mode-item active">歌詞搜尋</div>
+        <div class="mode-item disabled">
+            Spotify Live
+            <span class="coming-soon">COMING SOON</span>
+        </div>
     </div>
 
     <script>
-        // 支援鍵盤 Enter 搜尋
         document.getElementById("searchInput").addEventListener("keypress", (e) => {
             if (e.key === "Enter") searchLyrics();
         });
@@ -198,41 +190,44 @@
         async function searchLyrics() {
             const query = document.getElementById('searchInput').value.trim();
             const viewport = document.getElementById('lyricsViewport');
+            const loader = document.getElementById('loader');
+            const statusMsg = document.getElementById('statusMsg');
             
             if (!query) return;
 
-            viewport.innerHTML = '<div class="status-msg" style="color:#1db954">正在讀取雲端歌詞...</div>';
+            // 顯示載入動畫
+            statusMsg.style.display = 'none';
+            viewport.querySelectorAll('.lyric-line').forEach(el => el.remove());
+            loader.style.display = 'flex';
 
             try {
-                // 串接你的 Vercel 後端 API
                 const response = await fetch(`https://lyrics-back.vercel.app/api/get?track_name=${encodeURIComponent(query)}`);
                 const data = await response.json();
+
+                loader.style.display = 'none';
 
                 if (data.status === "success" && data.syncedLyrics) {
                     let html = "";
                     data.syncedLyrics.forEach(line => {
-                        // 正則表達式抓取時間戳
                         const match = line.match(/^(\[\d{2}:\d{2}\.\d{2,3}\])(.*)/);
-                        
                         if (match) {
-                            const time = match[1];     // 時間戳
-                            const text = match[2].trim(); // 純歌詞文字
-                            
-                            if(text) {
-                                // 時間標籤存入 data-time，畫面不顯示
-                                html += `<div class="lyric-line" data-time="${time}">${text}</div>`;
-                            }
+                            const time = match[1];
+                            const text = match[2].trim();
+                            if(text) html += `<div class="lyric-line" data-time="${time}">${text}</div>`;
                         } else if(line.trim()) {
                             html += `<div class="lyric-line">${line}</div>`;
                         }
                     });
                     viewport.innerHTML = html;
-                    viewport.scrollTop = 0; // 搜尋後回到最頂端
+                    viewport.scrollTop = 0;
                 } else {
-                    viewport.innerHTML = '<div class="status-msg">😢 找不到歌詞，請嘗試換個歌名</div>';
+                    statusMsg.style.display = 'block';
+                    statusMsg.innerText = "找不到該曲目，請精準輸入：歌名,歌手";
                 }
             } catch (error) {
-                viewport.innerHTML = '<div class="status-msg">⚠️ 連線失敗，請檢查後端 API</div>';
+                loader.style.display = 'none';
+                statusMsg.style.display = 'block';
+                statusMsg.innerText = "連線失敗，請檢查後端服務。";
             }
         }
     </script>
