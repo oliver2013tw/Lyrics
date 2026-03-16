@@ -60,14 +60,12 @@
         .spotify-logo { height: 26px; object-fit: contain; margin-bottom: 6px; }
         .live-tag { font-size: 10px; letter-spacing: 3px; color: #1db954; font-weight: 800; }
 
-        /* **NEW: Song Info Header Styles** */
+        /* 歌曲資訊欄：優化後的設計 */
         .song-info-header {
             display: flex;
             width: 100%;
             height: 50px;
             background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             overflow: hidden;
         }
@@ -81,20 +79,19 @@
             font-weight: 700;
             letter-spacing: 0.5px;
             color: #ffffff;
-            /* **Trancation with ...** */
-            text-overflow: ellipsis;
             white-space: nowrap;
             overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .song-title-display {
-            font-size: 16px;
+            font-size: 15px;
             border-right: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .song-artist-display {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
         }
 
         .lyrics-viewport {
@@ -104,7 +101,7 @@
         .lyrics-viewport::-webkit-scrollbar { width: 4px; }
         .lyrics-viewport::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
-        .lyric-line { font-size: 20px; line-height: 2.4; margin-bottom: 18px; color: rgba(255, 255, 255, 0.75); }
+        .lyric-line { font-size: 20px; line-height: 2.4; margin-bottom: 18px; color: rgba(255, 255, 255, 0.75); transition: 0.3s; }
 
         .loader {
             display: none; justify-content: center; align-items: center; gap: 6px; height: 40px; margin-top: 40%;
@@ -145,13 +142,13 @@
         </div>
 
         <div class="song-info-header">
-            <div id="displayTitle" class="song-title-display">歌名</div>
-            <div id="displayArtist" class="song-artist-display">作者</div>
+            <div id="displayTitle" class="song-title-display">---</div>
+            <div id="displayArtist" class="song-artist-display">---</div>
         </div>
 
         <div id="lyricsViewport" class="lyrics-viewport">
             <div id="loader" class="loader"><span></span><span></span><span></span><span></span></div>
-            <div id="statusMsg" class="status-msg">輸入歌名，同步你的音樂頻率</div>
+            <div id="statusMsg" class="status-msg">同步你的音樂頻率</div>
             <div id="lyricsContainer"></div>
         </div>
     </div>
@@ -164,7 +161,7 @@
     <script>
         let currentLyricsText = "";
         let currentSongTitle = "";
-        let currentArtistName = ""; // **NEW: Global variable**
+        let currentArtistName = "";
 
         document.getElementById("searchInput").addEventListener("keypress", (e) => {
             if (e.key === "Enter") searchLyrics();
@@ -177,22 +174,19 @@
             const statusMsg = document.getElementById('statusMsg');
             const dlBtn = document.getElementById('downloadBtn');
             const viewport = document.getElementById('lyricsViewport');
-            const displayTitle = document.getElementById('displayTitle'); // **NEW: DOM Reference**
-            const displayArtist = document.getElementById('displayArtist'); // **NEW: DOM Reference**
+            const displayTitle = document.getElementById('displayTitle');
+            const displayArtist = document.getElementById('displayArtist');
             
             if (!query) return;
 
-            // 1. 初始化狀態：隱藏按鈕、清空資料、顯示動畫
+            // 初始化
             dlBtn.style.display = 'none';
             container.innerHTML = ""; 
             currentLyricsText = "";
             currentSongTitle = "";
             currentArtistName = "";
-            
-            // **Clear new header content**
-            displayTitle.textContent = "";
-            displayArtist.textContent = "";
-
+            displayTitle.textContent = "搜尋中...";
+            displayArtist.textContent = "...";
             statusMsg.style.display = 'none';
             loader.style.display = 'flex';
 
@@ -205,29 +199,27 @@
                 if (data.status === "success" && data.syncedLyrics) {
                     let html = "";
                     let cleanLyricsArray = [];
-                    currentSongTitle = data.title || query.split(',')[0];
-                    currentArtistName = data.artistName || "未知歌手"; // **Set global variable**
+
+                    // 多重檢查歌手欄位 (解決未知歌手問題)
+                    currentArtistName = data.artistName || data.artist || "未知歌手";
+                    currentSongTitle = data.title || "未知歌名";
 
                     data.syncedLyrics.forEach(line => {
                         const match = line.match(/^(\[\d{2}:\d{2}\.\d{2,3}\])(.*)/);
                         if (match) {
-                            const time = match[1];
                             const text = match[2].trim();
                             if(text) {
-                                html += `<div class="lyric-line" data-time="${time}">${text}</div>`;
+                                html += `<div class="lyric-line" data-time="${match[1]}">${text}</div>`;
                                 cleanLyricsArray.push(text);
                             }
                         } else if(line.trim()) {
-                            html += `<div class="lyric-line">${line}</div>`;
+                            html += `<div class="lyric-line">${line.trim()}</div>`;
                             cleanLyricsArray.push(line.trim());
                         }
                     });
 
-                    // 2. 更新歌詞與新的資訊欄
                     container.innerHTML = html;
                     viewport.scrollTop = 0;
-                    
-                    // **NEW: Update the new header box**
                     displayTitle.textContent = currentSongTitle;
                     displayArtist.textContent = currentArtistName;
 
@@ -236,18 +228,16 @@
                     
                 } else {
                     statusMsg.style.display = 'block';
-                    statusMsg.innerText = "找不到歌詞，請嘗試：歌名,歌手";
-                    // **NEW: Clear new header content on failure**
-                    displayTitle.textContent = "找不到資訊";
-                    displayArtist.textContent = "請重試";
+                    statusMsg.innerText = "找不到歌詞，試試看別首歌吧！";
+                    displayTitle.textContent = "無結果";
+                    displayArtist.textContent = "---";
                 }
             } catch (error) {
                 loader.style.display = 'none';
                 statusMsg.style.display = 'block';
-                statusMsg.innerText = "連線失敗，請檢查 API 伺服器";
-                // **NEW: Clear new header content on error**
-                displayTitle.textContent = "找不到資訊";
-                displayArtist.textContent = "請重試";
+                statusMsg.innerText = "連線失敗，請檢查 API 狀態。";
+                displayTitle.textContent = "錯誤";
+                displayArtist.textContent = "---";
             }
         }
 
@@ -257,9 +247,8 @@
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            // **NEW: Optimized download filename format: Artist - Title.txt**
-            const fileNameTitle = currentArtistName ? `${currentArtistName} - ` : "";
-            a.download = `${fileNameTitle}${currentSongTitle}-歌詞.txt`;
+            // 下載檔名格式：作者 - 歌名-歌詞.txt
+            a.download = `${currentArtistName} - ${currentSongTitle}-歌詞.txt`;
             document.body.appendChild(a);
             a.click();
             setTimeout(() => {
